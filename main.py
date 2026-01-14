@@ -5,6 +5,9 @@ import uvicorn
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from starlette.routing import Mount
 
 from server.tools.tools import register_tools
@@ -53,13 +56,28 @@ def start_sse_server():
             )
 
         host = os.getenv("MCP_SERVER_HOST", "0.0.0.0")
-        port = int(os.getenv("MCP_SERVER_PORT", "8000"))
+        port = int(os.getenv("PORT", os.getenv("MCP_SERVER_PORT", "8000")))
+
+        # Auth middleware
+        class AuthMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                auth_token = os.getenv("AUTH_TOKEN")
+                if auth_token:
+                    request_token = request.headers.get("X-MCP-Token")
+                    if not request_token or request_token != auth_token:
+                        return JSONResponse(
+                            {"error": "Unauthorized"}, status_code=401
+                        )
+                return await call_next(request)
 
         # Create Starlette app with MCP server mounted
         app = Starlette(
             routes=[
                 Mount("/", app=mcp.sse_app()),
-            ]
+            ],
+            middleware=[
+                Middleware(AuthMiddleware),
+            ],
         )
 
         logger.info(
