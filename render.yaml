@@ -9,3 +9,5 @@ services:
         sync: false
       - key: TRELLO_TOKEN
         sync: false
+      - key: AUTH_TOKEN
+        sync: false
